@@ -126,7 +126,7 @@ fn main() {
     let mut rotation = Vec3::new(0.0, 0.0, 0.0);
     let mut scale = 100.0f32;
 
-    let obj = Obj::load("assets/models/ship6.obj").expect("Failed to load obj");
+    let obj = Obj::load("assets/model/tie-fighter.obj").expect("Failed to load obj");
     let vertex_arrays = obj.get_vertex_array(); 
 
     while window.is_open() {
