@@ -26,7 +26,7 @@ pub struct Uniforms {
     view_matrix: Mat4,
     projection_matrix: Mat4,
     viewport_matrix: Mat4,
-    frame_count: u32,
+    time: u32,
 }
 
 fn create_model_matrix(translation: Vec3, scale: f32, rotation: Vec3) -> Mat4 {
@@ -130,6 +130,7 @@ fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Ve
     }
 }
 
+
 fn main() {
     let window_width = 800;
     let window_height = 600;
@@ -163,16 +164,16 @@ fn main() {
         Vec3::new(0.0, 1.0, 0.0)
     );
 
-	let obj = Obj::load("assets/model/SpaceShip.obj").expect("Failed to load obj");
+	let obj = Obj::load("assets/model/tie-fighter.obj").expect("Failed to load obj");
 	let vertex_arrays = obj.get_vertex_array(); 
-	let mut frame_count = 0;
+	let mut time = 0;
 
-	while window.is_open() {
+    while window.is_open() {
         if window.is_key_down(Key::Escape) {
             break;
         }
 
-        frame_count += 1;
+        time += 1;
 
         handle_input(&window, &mut camera);
 
@@ -187,7 +188,7 @@ fn main() {
             view_matrix, 
             projection_matrix, 
             viewport_matrix, 
-            frame_count, 
+            time, 
         };
 
         framebuffer.set_current_color(0xFFDDDD);
@@ -201,8 +202,8 @@ fn main() {
 
 
 fn handle_input(window: &Window, camera: &mut Camera) {
-    let movement_speed = 1.0;
-    let rotation_speed = PI/50.0;
+    let movement_speed = 0.9;
+    let rotation_speed = PI/60.0;
     let zoom_speed = 0.1;
    
     //  camera orbit controls
