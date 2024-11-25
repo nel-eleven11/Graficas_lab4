@@ -4,6 +4,7 @@ use nalgebra_glm::{Vec3, Mat4, look_at, perspective};
 use minifb::{Key, Window, WindowOptions};
 use std::time::Duration;
 use std::f32::consts::PI;
+use std::rc::Rc;
 
 mod framebuffer;
 mod triangle;
@@ -28,14 +29,42 @@ pub struct Uniforms {
     projection_matrix: Mat4,
     viewport_matrix: Mat4,
     time: u32,
-    noise: FastNoiseLite,
+    noise: Rc<FastNoiseLite>,
 }
 
-fn create_noise() -> FastNoiseLite {
-    create_cloud_noise() 
-    // create_cell_noise()
-    // create_ground_noise()
-    // create_lava_noise()
+fn create_noise_for_planet(index: usize) -> FastNoiseLite {
+    match index {
+        0 => create_lava_noise(),         // Planeta 0: Lava
+        1 => create_cloud_noise(),        // Planeta 1: Gas o atmósfera
+        2 => create_generic_noise(),         // Planeta 2: Celdas tipo rocas
+        3 => create_ground_noise(),       // Planeta 3: Terreno accidentado
+        4 => create_gas_giant_noise(),    // Planeta 4: Gigante Gaseoso
+        5 => create_icy_noise(),          // Planeta 5: Hielo o desierto
+        6 => create_generic_noise(),      // Planeta 6: Genérico para un relleno
+        _ => create_generic_noise(),      // Por defecto: algo genérico
+    }
+}
+
+fn create_generic_noise() -> FastNoiseLite {
+    let mut noise = FastNoiseLite::with_seed(1337);
+    noise.set_noise_type(Some(NoiseType::Perlin));  // Usar Perlin por defecto
+    noise.set_frequency(Some(0.05));               // Frecuencia básica
+    noise
+}
+
+fn create_icy_noise() -> FastNoiseLite {
+    let mut noise = FastNoiseLite::with_seed(7890);
+    noise.set_noise_type(Some(NoiseType::OpenSimplex2)); // Simplex para suaves transiciones
+    noise.set_frequency(Some(0.08));                    // Frecuencia más alta
+    noise.set_fractal_type(Some(FractalType::FBm));     // Más octavas para textura
+    noise
+}
+
+fn create_gas_giant_noise() -> FastNoiseLite {
+    let mut noise = FastNoiseLite::with_seed(4242);
+    noise.set_noise_type(Some(NoiseType::OpenSimplex2)); // Efecto de bandas suaves
+    noise.set_frequency(Some(0.02));                    // Características grandes
+    noise
 }
 
 fn create_cloud_noise() -> FastNoiseLite {
@@ -44,12 +73,6 @@ fn create_cloud_noise() -> FastNoiseLite {
     noise
 }
 
-fn create_cell_noise() -> FastNoiseLite {
-    let mut noise = FastNoiseLite::with_seed(1337);
-    noise.set_noise_type(Some(NoiseType::Cellular));
-    noise.set_frequency(Some(0.1));
-    noise
-}
 
 fn create_ground_noise() -> FastNoiseLite {
     let mut noise = FastNoiseLite::with_seed(1337);
@@ -218,7 +241,19 @@ fn main() {
 	let vertex_arrays = obj.get_vertex_array(); 
 	let mut time = 0;
 
-    let noise = create_noise();
+    let mut noises: Vec<Rc<FastNoiseLite>> = Vec::new();
+    for i in 0..7 {
+        noises.push(Rc::new(create_noise_for_planet(i)));
+    }
+    
+    let mut planets = Vec::new();
+    let generic_noise = Rc::new(create_generic_noise());
+    for (i, vertex_array) in vertex_arrays.chunks(3).enumerate() {
+        let noise = noises.get(i).unwrap_or(&generic_noise); // Usa ruido genérico si no hay otro disponible
+        planets.push((vertex_array, Rc::clone(noise))); // Clonamos la referencia
+    }
+
+    
     let projection_matrix = create_perspective_matrix(window_width as f32, window_height as f32);
     let viewport_matrix = create_viewport_matrix(framebuffer_width as f32, framebuffer_height as f32);
     let mut uniforms = Uniforms { 
@@ -227,7 +262,7 @@ fn main() {
         projection_matrix, 
         viewport_matrix, 
         time: 0, 
-        noise
+        noise: create_generic_noise().into(),
     };
 
     while window.is_open() {
@@ -245,7 +280,12 @@ fn main() {
         uniforms.view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
         uniforms.time = time;
         framebuffer.set_current_color(0xFFDDDD);
-        render(&mut framebuffer, &uniforms, &vertex_arrays);
+
+        // Renderiza cada planeta con su ruido asignado
+        for (planet_index, (vertex_array, noise)) in planets.iter().enumerate() {
+            uniforms.noise = Rc::clone(noise); // Clona la referencia, no el valor
+            render(&mut framebuffer, &uniforms, vertex_array);
+        }
 
         window
             .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)

@@ -49,127 +49,92 @@ pub fn vertex_shader(vertex: &Vertex, uniforms: &Uniforms) -> Vertex {
 }
 
 pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	// random_color_shader(fragment, uniforms)
-	// black_and_white(fragment, uniforms)
-	dalmata_shader(fragment, uniforms)
-	// cloud_shader(fragment, uniforms)
-	// cellular_shader(fragment, uniforms)
-	// cracked_ground_shader(fragment, uniforms)
-	// lava_shader(fragment, uniforms)
+	
+	//lava_planet_shader(fragment, uniforms)
+	//gas_planet_color(fragment, uniforms)
+	//sun_shader(fragment, uniforms)
+	rocky_planet_shader(fragment, uniforms)
+	//gas_giant_shader(fragment, uniforms)
+	//ice_planet_shader(fragment, uniforms)
+	//moon_color(fragment, uniforms)
+
 }
 
-fn random_color_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	let seed = uniforms.time as u64;
+fn moon_color(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    // Aumenta la escala del ruido para más detalles.
+    let noise_value = uniforms.noise.get_noise_2d(fragment.vertex_position.x * 20.0, fragment.vertex_position.z * 20.0);
+    
+    let elevation = noise_value; // Puedes combinar varios niveles de ruido si lo deseas.
 
-	let mut rng = StdRng::seed_from_u64(seed);
+    // Define umbrales para diferentes tipos de terreno lunar.
+    let low_threshold = -0.1; 
+    let medium_threshold = 0.1;
+    let high_threshold = 0.3; // Agregar un nuevo umbral para cráteres.
 
-	let r = rng.gen_range(0..=255);
-	let g = rng.gen_range(0..=255);
-	let b = rng.gen_range(0..=255);
+    // Define colores representativos para la luna.
+    let dark_surface_color = Color::new(169, 169, 169); // Gris oscuro.
+    let light_surface_color = Color::new(211, 211, 211); // Gris claro.
+    let crater_color = Color::new(255, 255, 255);       // Blanco para los cráteres.
 
-	let random_color = Color::new(r, g, b);
+    // Determina el color basado en la elevación lunar.
+    let color = if elevation < low_threshold {
+        dark_surface_color
+    } else if elevation < medium_threshold {
+        light_surface_color
+    } else if elevation < high_threshold {
+        crater_color // Área de cráteres.
+    } else {
+        Color::new(240, 240, 240) // Color para áreas muy altas.
+    };
 
-	random_color * fragment.intensity
-	}
-
-	fn black_and_white(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	let seed = uniforms.time as f32 * fragment.vertex_position.y * fragment.vertex_position.x;
-
-	let mut rng = StdRng::seed_from_u64(seed.abs() as u64);
-
-	let random_number = rng.gen_range(0..=100);
-
-	let black_or_white = if random_number < 50 {
-		Color::new(0, 0, 0)
-	} else {
-		Color::new(255, 255, 255)
-	};
-
-	black_or_white * fragment.intensity
+    // Devuelve el color multiplicado por la intensidad del fragmento.
+    color * fragment.intensity
 }
 
-fn dalmata_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	let zoom = 100.0;
-	let ox = 0.0;
-	let oy = 0.0;
-	let x = fragment.vertex_position.x;
-	let y = fragment.vertex_position.y;
+fn gas_planet_color(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    // Utiliza la posición del fragmento y el tiempo para generar un "seed" para el ruido.
+    let seed = uniforms.time as f32 * fragment.vertex_position.y * fragment.vertex_position.x;
+    
+    // Crea un generador de números aleatorios basado en el seed.
+    let mut rng = StdRng::seed_from_u64(seed.abs() as u64);
+    
+    // Genera un número aleatorio para la variación en el color.
+    let random_number = rng.gen_range(0..=100);
 
-	let noise_value = uniforms.noise.get_noise_2d(
-		(x + ox) * zoom,
-		(y + oy) * zoom,
-	);
+    // Define colores base para el planeta gaseoso.
+    let base_color = Color::new(70, 130, 180); // Azul
+    let cloud_color = Color::new(255, 255, 255); // Blanco para nubes
+    let shadow_color = Color::new(50, 50, 100); // Color oscuro para sombras
 
-	let spot_threshold = 0.5;
-	let spot_color = Color::new(255, 255, 255); // White
-	let base_color = Color::new(0, 0, 0); // Black
+    // Calcular el factor de nubes usando el ruido
+    let noise_value = uniforms.noise.get_noise_2d(fragment.vertex_position.x * 5.0, fragment.vertex_position.z * 5.0);
+    let cloud_factor = (noise_value * 0.5 + 0.5).powi(2); // Escala el ruido entre 0 y 1.
 
-	let noise_color = if noise_value < spot_threshold {
-		spot_color
-	} else {
-		base_color
-	};
+    // Selección de color basado en el número aleatorio para agregar variación.
+    let planet_color = if random_number < 50 {
+        base_color * (1.0 - cloud_factor) + cloud_color * cloud_factor
+    } else {
+        cloud_color * cloud_factor // Predominan las nubes
+    };
 
-	noise_color * fragment.intensity
+    // Añadir sombras sutiles
+    let shadow_factor = (1.0 - noise_value).max(0.0);
+    let shadow_effect = shadow_color * shadow_factor * 0.3; // Sombra suave
+
+    // Combina el color del planeta y las sombras
+    let final_color = planet_color + shadow_effect;
+
+    // Brillo atmosférico (opcional)
+    let glow_color = Color::new(200, 200, 255); // Brillo azul claro
+    let glow_factor = (1.0 - (fragment.vertex_position.y / 10.0).max(0.0).min(1.0)).max(0.0); // Basado en altura
+    let final_glow = glow_color * glow_factor * 0.1; // Brillo sutil
+
+    // Devuelve el color final combinado
+    final_color + final_glow
 }
 
-fn cloud_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	let zoom = 100.0;  // to move our values 
-	let ox = 100.0; // offset x in the noise map
-	let oy = 100.0;
-	let x = fragment.vertex_position.x;
-	let y = fragment.vertex_position.y;
-	let t = uniforms.time as f32 * 0.5;
 
-	let noise_value = uniforms.noise.get_noise_2d(x * zoom + ox + t, y * zoom + oy);
-
-	// Define cloud threshold and colors
-	let cloud_threshold = 0.5; // Adjust this value to change cloud density
-	let cloud_color = Color::new(255, 255, 255); // White for clouds
-	let sky_color = Color::new(30, 97, 145); // Sky blue
-
-	// Determine if the pixel is part of a cloud or sky
-	let noise_color = if noise_value > cloud_threshold {
-		cloud_color
-	} else {
-		sky_color
-	};
-
-	noise_color * fragment.intensity
-}
-
-fn cellular_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	let zoom = 30.0;  // Zoom factor to adjust the scale of the cell pattern
-	let ox = 50.0;    // Offset x in the noise map
-	let oy = 50.0;    // Offset y in the noise map
-	let x = fragment.vertex_position.x;
-	let y = fragment.vertex_position.y;
-
-	// Use a cellular noise function to create the plant cell pattern
-	let cell_noise_value = uniforms.noise.get_noise_2d(x * zoom + ox, y * zoom + oy).abs();
-
-	// Define different shades of green for the plant cells
-	let cell_color_1 = Color::new(85, 107, 47);   // Dark olive green
-	let cell_color_2 = Color::new(124, 252, 0);   // Light green
-	let cell_color_3 = Color::new(34, 139, 34);   // Forest green
-	let cell_color_4 = Color::new(173, 255, 47);  // Yellow green
-
-	// Use the noise value to assign a different color to each cell
-	let final_color = if cell_noise_value < 0.15 {
-		cell_color_1
-	} else if cell_noise_value < 0.7 {
-		cell_color_2
-	} else if cell_noise_value < 0.75 {
-		cell_color_3
-	} else {
-		cell_color_4
-	};
-
-	// Adjust intensity to simulate lighting effects (optional)
-	final_color * fragment.intensity
-}
-
-fn lava_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+fn lava_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
 	// Base colors for the lava effect
 	let bright_color = Color::new(255, 240, 0); // Bright orange (lava-like)
 	let dark_color = Color::new(130, 20, 0);   // Darker red-orange
@@ -208,3 +173,99 @@ fn lava_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
 
 	color * fragment.intensity
 }
+
+fn sun_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let position = fragment.vertex_position;
+    let distance = position.magnitude(); // Distancia del centro
+
+    // Base colors for the star
+    let core_color = Color::new(255, 204, 0); // Brillante amarillo
+    let edge_color = Color::new(255, 69, 0);  // Naranja más oscuro
+
+    // Noise to create surface turbulence
+    let noise_value = uniforms.noise.get_noise_3d(position.x * 10.0, position.y * 10.0, uniforms.time as f32 * 0.01);
+    let turbulence = noise_value.abs();
+
+    // Blend core and edge colors based on distance from center
+    let blend_factor = (distance - 0.2).clamp(0.0, 1.0);
+    let base_color = core_color.lerp(&edge_color, blend_factor);
+
+    // Add dynamic turbulence effect
+    let dynamic_color = base_color * (1.0 + turbulence * 0.3);
+
+    // Glow effect based on proximity to the center
+    let glow_factor = (1.0 - distance).clamp(0.0, 1.0).powi(2);
+    let glow_color = Color::new(255, 255, 224) * glow_factor;
+
+    dynamic_color + glow_color
+}
+
+fn rocky_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let position = fragment.vertex_position;
+
+    // Base colors for rocky surface
+    let base_color = Color::new(139, 69, 19);   // Marrón
+    let crater_color = Color::new(105, 105, 105); // Gris oscuro
+
+    // Generate noise for surface texture
+    let _surface_noise = uniforms.noise.get_noise_3d(position.x * 5.0, position.y * 5.0, position.z * 5.0);
+    let crater_noise = uniforms.noise.get_noise_3d(position.x * 10.0, position.y * 10.0, position.z * 10.0).abs();
+
+    // Simulate craters
+    let crater_factor = (crater_noise - 0.5).clamp(0.0, 1.0).powi(2); // Cráter más profundo al acercarse a 1.0
+
+    // Blend base color with crater color
+    let rocky_color = base_color.lerp(&crater_color, crater_factor);
+
+    // Simulate lighting intensity
+    rocky_color * fragment.intensity
+}
+
+
+fn gas_giant_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let position = fragment.vertex_position;
+
+    // Base colors for gas giant bands
+    let base_color = Color::new(70, 130, 180); // Azul
+    let band_color = Color::new(255, 255, 255); // Blanco para las bandas
+
+    // Generate horizontal bands using sine waves
+    let band_factor = (position.y * 10.0).sin().abs();
+
+    // Turbulence effect
+    let turbulence = uniforms.noise.get_noise_3d(position.x * 5.0, position.y * 5.0, uniforms.time as f32 * 0.01).abs();
+
+    // Blend band and base colors
+    let gas_color = base_color.lerp(&band_color, band_factor * turbulence);
+
+    // Add slight glow to simulate atmospheric scattering
+    let glow_color = Color::new(200, 200, 255); // Azul claro
+    let glow_factor = (1.0 - position.magnitude() / 10.0).clamp(0.0, 1.0);
+    let final_glow = glow_color * glow_factor * 0.1;
+
+    gas_color + final_glow
+}
+
+
+fn ice_planet_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+	let position = fragment.vertex_position;
+
+	// Base colors for the ice planet
+	let base_color = Color::new(240, 248, 255); // Blanco azulado
+	let ice_color = Color::new(173, 216, 230);  // Azul claro
+
+	// Generate noise for surface texture
+	let noise_value = uniforms.noise.get_noise_3d(position.x * 5.0, position.y * 5.0, position.z * 5.0);
+	let ice_factor = (noise_value * 0.5 + 0.5).powi(2); // Escala el ruido entre 0 y 1.
+
+	// Blend base color with ice color
+	let ice_planet_color = base_color.lerp(&ice_color, ice_factor);
+
+	// Add slight glow to simulate atmospheric scattering
+	let glow_color = Color::new(200, 200, 255); // Azul claro
+	let glow_factor = (1.0 - position.magnitude() / 10.0).clamp(0.0, 1.0);
+	let final_glow = glow_color * glow_factor * 0.1;
+
+	ice_planet_color + final_glow
+}
+
