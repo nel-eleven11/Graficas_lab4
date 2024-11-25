@@ -1,11 +1,13 @@
 // shaders.rs
 
-use nalgebra_glm::{Vec3, Vec4, Mat3, dot, mat4_to_mat3};
+use nalgebra_glm::{Vec3, Vec4, Mat3, mat4_to_mat3};
 use crate::vertex::Vertex;
 use crate::Uniforms;
 use crate::fragment::Fragment;
 use crate::color::Color;
-use std::f32::consts::PI;
+use rand::Rng;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 
 pub fn vertex_shader(vertex: &Vertex, uniforms: &Uniforms) -> Vertex {
 	// Transform position
@@ -47,143 +49,162 @@ pub fn vertex_shader(vertex: &Vertex, uniforms: &Uniforms) -> Vertex {
 }
 
 pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	// Apply the fragment intensity to the mixed color
-	combined_shader(fragment, uniforms)
-	// combined_blend_shader(fragment, "normal")
-	// combined_blend_shader(fragment, "multiply")
-	// combined_blend_shader(fragment, "add")
-	// combined_blend_shader(fragment, "subtract")
-	// neon_light_shader(fragment)
+	// random_color_shader(fragment, uniforms)
+	// black_and_white(fragment, uniforms)
+	dalmata_shader(fragment, uniforms)
+	// cloud_shader(fragment, uniforms)
+	// cellular_shader(fragment, uniforms)
+	// cracked_ground_shader(fragment, uniforms)
+	// lava_shader(fragment, uniforms)
 }
 
-fn static_pattern_shader(fragment: &Fragment) -> Color {
-	let x = fragment.vertex_position.x;
-	let y = fragment.vertex_position.y;
+fn random_color_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+	let seed = uniforms.time as u64;
 
-	let pattern = ((x * 10.0).sin() * (y * 10.0).sin()).abs();
+	let mut rng = StdRng::seed_from_u64(seed);
 
-	let r = (pattern * 255.0) as u8;
-	let g = ((1.0 - pattern) * 255.0) as u8;
-	let b = 128;
+	let r = rng.gen_range(0..=255);
+	let g = rng.gen_range(0..=255);
+	let b = rng.gen_range(0..=255);
 
-	Color::new(r, g, b)
+	let random_color = Color::new(r, g, b);
+
+	random_color * fragment.intensity
 	}
 
-	fn moving_circles_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	let x = fragment.vertex_position.x;
-	let y = fragment.vertex_position.y;
+	fn black_and_white(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+	let seed = uniforms.time as f32 * fragment.vertex_position.y * fragment.vertex_position.x;
 
-	let time = uniforms.time as f32 * 0.05;
-	let circle1_x = (time.sin() * 0.4 + 0.5) % 1.0;
-	let circle2_x = (time.cos() * 0.4 + 0.5) % 1.0;
+	let mut rng = StdRng::seed_from_u64(seed.abs() as u64);
 
-	let dist1 = ((x - circle1_x).powi(2) + (y - 0.3).powi(2)).sqrt();
-	let dist2 = ((x - circle2_x).powi(2) + (y - 0.7).powi(2)).sqrt();
+	let random_number = rng.gen_range(0..=100);
 
-	let circle_size = 0.1;
-	let circle1 = if dist1 < circle_size { 1.0f32 } else { 0.0f32 };
-	let circle2 = if dist2 < circle_size { 1.0f32 } else { 0.0f32 };
-
-	let circle_intensity = (circle1 + circle2).min(1.0f32);
-
-	Color::new(
-		(circle_intensity * 255.0) as u8,
-		(circle_intensity * 255.0) as u8,
-		(circle_intensity * 255.0) as u8
-	)
-}
-
-// Combined shader
-pub fn combined_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	let base_color = static_pattern_shader(fragment);
-	let circle_color = moving_circles_shader(fragment, uniforms);
-
-	// Combine shaders: use circle color if it's not black, otherwise use base color
-	if !circle_color.is_black() {
-		circle_color * fragment.intensity
+	let black_or_white = if random_number < 50 {
+		Color::new(0, 0, 0)
 	} else {
-		base_color * fragment.intensity
-	}
-}
-
-// Simple purple shader
-fn purple_shader(_fragment: &Fragment) -> Color {
-  	Color::new(128, 0, 128) // Purple color
-}
-
-// Circle shader
-fn circle_shader(fragment: &Fragment) -> Color {
-	let x = fragment.vertex_position.x;
-	let y = fragment.vertex_position.y;
-	let distance = (x * x + y * y).sqrt();
-
-	if distance < 0.25 { // Circle radius
-		Color::new(255, 255, 0) // Yellow circle
-	} else {
-		Color::new(0, 0, 0) // Black (transparent) background
-	}
-}
-
-// Combined shader with blend mode parameter
-pub fn combined_blend_shader(fragment: &Fragment, blend_mode: &str) -> Color {
-	let base_color = purple_shader(fragment);
-	let circle_color = circle_shader(fragment);
-
-	let combined_color = match blend_mode {
-		"normal" => base_color.blend_normal(&circle_color),
-		"multiply" => base_color.blend_multiply(&circle_color),
-		"add" => base_color.blend_add(&circle_color),
-		"subtract" => base_color.blend_subtract(&circle_color),
-		_ => base_color // Default to base color if unknown blend mode
+		Color::new(255, 255, 255)
 	};
 
-	combined_color * fragment.intensity
+	black_or_white * fragment.intensity
 }
 
-fn glow_shader(fragment: &Fragment) -> Color {
-    let y = fragment.vertex_position.y;
-    let stripe_width = 0.2;
-    let glow_size = 0.05; 
-    
-    let distance_to_center = (y % stripe_width - stripe_width / 2.0).abs();
-    let glow_intensity = ((1.0 - (distance_to_center / glow_size).min(1.0)) * PI / 2.0).sin();
-    
-    // Neon blue color for the glow
-    Color::new(
-        (0.0 * glow_intensity * 255.0) as u8,
-        (0.5 * glow_intensity * 255.0) as u8,
-        (glow_intensity * 255.0) as u8
-    )
+fn dalmata_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+	let zoom = 100.0;
+	let ox = 0.0;
+	let oy = 0.0;
+	let x = fragment.vertex_position.x;
+	let y = fragment.vertex_position.y;
+
+	let noise_value = uniforms.noise.get_noise_2d(
+		(x + ox) * zoom,
+		(y + oy) * zoom,
+	);
+
+	let spot_threshold = 0.5;
+	let spot_color = Color::new(255, 255, 255); // White
+	let base_color = Color::new(0, 0, 0); // Black
+
+	let noise_color = if noise_value < spot_threshold {
+		spot_color
+	} else {
+		base_color
+	};
+
+	noise_color * fragment.intensity
 }
 
-fn core_shader(fragment: &Fragment) -> Color {
-    let y = fragment.vertex_position.y;
-    let stripe_width = 0.2;
-    let core_size = 0.02;
-    
-    let distance_to_center = (y % stripe_width - stripe_width / 2.0).abs();
-    let core_intensity = if distance_to_center < core_size { 1.0 } else { 0.0 };
-    
-    Color::new(
-        (0.8 * core_intensity * 255.0) as u8,
-        (0.9 * core_intensity * 255.0) as u8,
-        (core_intensity * 255.0) as u8
-    )
+fn cloud_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+	let zoom = 100.0;  // to move our values 
+	let ox = 100.0; // offset x in the noise map
+	let oy = 100.0;
+	let x = fragment.vertex_position.x;
+	let y = fragment.vertex_position.y;
+	let t = uniforms.time as f32 * 0.5;
+
+	let noise_value = uniforms.noise.get_noise_2d(x * zoom + ox + t, y * zoom + oy);
+
+	// Define cloud threshold and colors
+	let cloud_threshold = 0.5; // Adjust this value to change cloud density
+	let cloud_color = Color::new(255, 255, 255); // White for clouds
+	let sky_color = Color::new(30, 97, 145); // Sky blue
+
+	// Determine if the pixel is part of a cloud or sky
+	let noise_color = if noise_value > cloud_threshold {
+		cloud_color
+	} else {
+		sky_color
+	};
+
+	noise_color * fragment.intensity
 }
 
-fn background_shader(_fragment: &Fragment) -> Color {
-    Color::new(10, 10, 20) // Dark blue background
+fn cellular_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+	let zoom = 30.0;  // Zoom factor to adjust the scale of the cell pattern
+	let ox = 50.0;    // Offset x in the noise map
+	let oy = 50.0;    // Offset y in the noise map
+	let x = fragment.vertex_position.x;
+	let y = fragment.vertex_position.y;
+
+	// Use a cellular noise function to create the plant cell pattern
+	let cell_noise_value = uniforms.noise.get_noise_2d(x * zoom + ox, y * zoom + oy).abs();
+
+	// Define different shades of green for the plant cells
+	let cell_color_1 = Color::new(85, 107, 47);   // Dark olive green
+	let cell_color_2 = Color::new(124, 252, 0);   // Light green
+	let cell_color_3 = Color::new(34, 139, 34);   // Forest green
+	let cell_color_4 = Color::new(173, 255, 47);  // Yellow green
+
+	// Use the noise value to assign a different color to each cell
+	let final_color = if cell_noise_value < 0.15 {
+		cell_color_1
+	} else if cell_noise_value < 0.7 {
+		cell_color_2
+	} else if cell_noise_value < 0.75 {
+		cell_color_3
+	} else {
+		cell_color_4
+	};
+
+	// Adjust intensity to simulate lighting effects (optional)
+	final_color * fragment.intensity
 }
 
-// Combined neon light shader
-pub fn neon_light_shader(fragment: &Fragment) -> Color {
-    let background = background_shader(fragment);
-    let glow = glow_shader(fragment);
-    let core = core_shader(fragment);
-    
-    // Blend the glow with the background using "screen" blend mode
-    let blended_glow = background.blend_screen(&glow);
-    
-    // Add the core on top using "add" blend mode
-    blended_glow.blend_add(&core) * fragment.intensity
+fn lava_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+	// Base colors for the lava effect
+	let bright_color = Color::new(255, 240, 0); // Bright orange (lava-like)
+	let dark_color = Color::new(130, 20, 0);   // Darker red-orange
+
+	// Get fragment position
+	let position = Vec3::new(
+		fragment.vertex_position.x,
+		fragment.vertex_position.y,
+		fragment.depth
+	);
+
+	// Base frequency and amplitude for the pulsating effect
+	let base_frequency = 0.2;
+	let pulsate_amplitude = 0.5;
+	let t = uniforms.time as f32 * 0.01;
+
+	// Pulsate on the z-axis to change spot size
+	let pulsate = (t * base_frequency).sin() * pulsate_amplitude;
+
+	// Apply noise to coordinates with subtle pulsating on z-axis
+	let zoom = 1000.0; // Constant zoom factor
+	let noise_value1 = uniforms.noise.get_noise_3d(
+		position.x * zoom,
+		position.y * zoom,
+		(position.z + pulsate) * zoom
+	);
+	let noise_value2 = uniforms.noise.get_noise_3d(
+		(position.x + 1000.0) * zoom,
+		(position.y + 1000.0) * zoom,
+		(position.z + 1000.0 + pulsate) * zoom
+	);
+	let noise_value = (noise_value1 + noise_value2) * 0.5;  // Averaging noise for smoother transitions
+
+	// Use lerp for color blending based on noise value
+	let color = dark_color.lerp(&bright_color, noise_value);
+
+	color * fragment.intensity
 }
