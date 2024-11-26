@@ -37,11 +37,14 @@ fn create_noise_for_planet(index: usize) -> FastNoiseLite {
         0 => create_lava_noise(),
         1 => create_gas_giant_noise(),
         2 => create_generic_noise(),
-        3 => create_ground_noise(),
+        3 => create_generic_noise(),
         4 => create_cloud_noise(),
         5 => create_icy_noise(),
         6 => create_generic_noise(),
-        _ => { create_generic_noise()}
+        7 => create_generic_noise(),
+        8 => create_generic_noise(),
+        9 => create_generic_noise(),
+        _ => create_generic_noise(),
     }
 }
 

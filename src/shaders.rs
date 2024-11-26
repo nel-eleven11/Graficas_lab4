@@ -59,9 +59,42 @@ pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms, current_shader:
 		4 => gas_giant_shader(fragment, uniforms),
 		5 => ice_planet_shader(fragment, uniforms),
 		6 => wave_shader(fragment, uniforms),
-		_ => moon_shader(fragment, uniforms),
+		7 => moon_shader(fragment, uniforms),
+        8 => atmospheric_shader(fragment, uniforms),
+        9 => dynamic_surface_shader(fragment, uniforms),
+        _ => Color::new(0, 0, 0),
 	}
 }
+
+fn atmospheric_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let noise_value = uniforms.noise.get_noise_3d(
+        fragment.vertex_position.x * 5.0,
+        fragment.vertex_position.y * 5.0,
+        uniforms.time as f32 * 0.02,
+    );
+
+    let base_color = Color::new(70, 130, 180); // Azul para la atmósfera
+    let cloud_color = Color::new(255, 255, 255); // Blanco para nubes
+
+    let blend_factor = (noise_value + 1.0) / 2.0; // Escalar a rango [0, 1]
+    base_color.lerp(&cloud_color, blend_factor)
+}
+
+
+fn dynamic_surface_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let noise_value = uniforms.noise.get_noise_3d(
+        fragment.vertex_position.x * 3.0,
+        fragment.vertex_position.z * 3.0,
+        uniforms.time as f32 * 0.01,
+    );
+
+    let land_color = Color::new(34, 139, 34); // Verde para tierra
+    let water_color = Color::new(30, 144, 255); // Azul para agua
+
+    let blend_factor = (noise_value + 1.0) / 2.0;
+    land_color.lerp(&water_color, blend_factor)
+}
+
 
 fn wave_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
     // Posición del fragmento
