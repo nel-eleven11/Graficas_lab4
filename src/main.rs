@@ -2,6 +2,7 @@
 
 use nalgebra_glm::{Vec3, Mat4, look_at, perspective};
 use minifb::{Key, Window, WindowOptions};
+use core::num;
 use std::time::Duration;
 use std::f32::consts::PI;
 use std::rc::Rc;
@@ -37,7 +38,7 @@ fn create_noise_for_planet(index: usize) -> FastNoiseLite {
         0 => create_lava_noise(),
         1 => create_gas_giant_noise(),
         2 => create_generic_noise(),
-        3 => create_generic_noise(),
+        3 => create_ground_noise(),
         4 => create_cloud_noise(),
         5 => create_icy_noise(),
         6 => create_generic_noise(),
@@ -273,9 +274,11 @@ fn main() {
             break;
         }
 
+        let number_of_planets = 9;
+
         // Cambiar el shader al presionar "S"
         if window.is_key_pressed(Key::C, minifb::KeyRepeat::No) {
-            current_shader = (current_shader + 1) % 8; // Cambia entre 0, 1, 2, 3, 4
+            current_shader = (current_shader + 1) % number_of_planets; 
         }
 
         time += 1;

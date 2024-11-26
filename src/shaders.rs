@@ -103,7 +103,7 @@ fn wave_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
     // Configuración de la onda
     let wave_speed = 0.3;
     let wave_frequency = 10.0;
-    let wave_amplitude = 0.05;
+    let wave_amplitude = 0.07;
     let time = uniforms.time as f32 * wave_speed;
 
     // Calcular el desplazamiento basado en el ruido y la onda
