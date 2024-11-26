@@ -48,47 +48,75 @@ pub fn vertex_shader(vertex: &Vertex, uniforms: &Uniforms) -> Vertex {
 	}
 }
 
-pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-	
-	//lava_planet_shader(fragment, uniforms)
-	//gas_planet_color(fragment, uniforms)
-	//sun_shader(fragment, uniforms)
-	rocky_planet_shader(fragment, uniforms)
-	//gas_giant_shader(fragment, uniforms)
-	//ice_planet_shader(fragment, uniforms)
-	//moon_color(fragment, uniforms)
+pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms, current_shader: u32) -> Color {
 
+	// Call the appropriate shader based on the current_shader value
+	match current_shader {
+		0 => lava_planet_shader(fragment, uniforms),
+		1 => gas_planet_color(fragment, uniforms),
+		2 => sun_shader(fragment, uniforms),
+		3 => rocky_planet_shader(fragment, uniforms),
+		4 => gas_giant_shader(fragment, uniforms),
+		5 => ice_planet_shader(fragment, uniforms),
+		6 => wave_shader(fragment, uniforms),
+		_ => moon_shader(fragment, uniforms),
+	}
 }
 
-fn moon_color(fragment: &Fragment, uniforms: &Uniforms) -> Color {
-    // Aumenta la escala del ruido para más detalles.
-    let noise_value = uniforms.noise.get_noise_2d(fragment.vertex_position.x * 20.0, fragment.vertex_position.z * 20.0);
+fn wave_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    // Posición del fragmento
+    let pos = fragment.vertex_position;
     
-    let elevation = noise_value; // Puedes combinar varios niveles de ruido si lo deseas.
+    // Configuración de la onda
+    let wave_speed = 0.3;
+    let wave_frequency = 10.0;
+    let wave_amplitude = 0.05;
+    let time = uniforms.time as f32 * wave_speed;
 
-    // Define umbrales para diferentes tipos de terreno lunar.
-    let low_threshold = -0.1; 
-    let medium_threshold = 0.1;
-    let high_threshold = 0.3; // Agregar un nuevo umbral para cráteres.
+    // Calcular el desplazamiento basado en el ruido y la onda
+    let distance = (pos.x.powi(2) + pos.y.powi(2)).sqrt();
+    let ripple = (wave_frequency * (distance - time)).sin() * wave_amplitude;
 
-    // Define colores representativos para la luna.
-    let dark_surface_color = Color::new(169, 169, 169); // Gris oscuro.
-    let light_surface_color = Color::new(211, 211, 211); // Gris claro.
-    let crater_color = Color::new(255, 255, 255);       // Blanco para los cráteres.
+    // Colores de las ondas
+    let base_color = Color::new(70, 130, 180); // Azul acero
+    let ripple_color = Color::new(173, 216, 230); // Azul claro
 
-    // Determina el color basado en la elevación lunar.
-    let color = if elevation < low_threshold {
-        dark_surface_color
-    } else if elevation < medium_threshold {
-        light_surface_color
-    } else if elevation < high_threshold {
-        crater_color // Área de cráteres.
+    // Mezclar los colores basados en el valor de la onda
+    let color_factor = ripple.clamp(0.0, 1.0);
+    let final_color = base_color.lerp(&ripple_color, color_factor);
+
+    // Aplicar intensidad para simular iluminación
+    final_color * fragment.intensity
+}
+
+fn moon_shader(fragment: &Fragment, uniforms: &Uniforms) -> Color {
+    let zoom = 50.0;
+    let x = fragment.vertex_position.x;
+    let y = fragment.vertex_position.y;
+    let t = uniforms.time as f32 * 0.1;
+
+    // Añadimos un efecto pulsante a los cráteres
+    let pulsate = (t * 0.5).sin() * 0.05;
+
+    // Ruido para la textura de la superficie
+    let surface_noise = uniforms.noise.get_noise_2d(x * zoom + t, y * zoom + t);
+
+    let gray_color = Color::new(200, 200, 200);
+    let bright_crater_color = Color::new(220, 220, 220); // Cráter más brillante
+    let dynamic_color = Color::new(250, 250, 250); // Toque dinámico brillante
+
+    let crater_threshold = 0.4 + pulsate; // Dinamismo en los cráteres
+
+    // Definir el color base de la luna
+    let base_color = if surface_noise > crater_threshold {
+        gray_color
+    } else if surface_noise > crater_threshold - 0.1 {
+        bright_crater_color
     } else {
-        Color::new(240, 240, 240) // Color para áreas muy altas.
+        dynamic_color // Zonas más dinámicas
     };
 
-    // Devuelve el color multiplicado por la intensidad del fragmento.
-    color * fragment.intensity
+    base_color * fragment.intensity
 }
 
 fn gas_planet_color(fragment: &Fragment, uniforms: &Uniforms) -> Color {

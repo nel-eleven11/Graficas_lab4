@@ -34,14 +34,14 @@ pub struct Uniforms {
 
 fn create_noise_for_planet(index: usize) -> FastNoiseLite {
     match index {
-        0 => create_lava_noise(),         // Planeta 0: Lava
-        1 => create_cloud_noise(),        // Planeta 1: Gas o atmósfera
-        2 => create_generic_noise(),         // Planeta 2: Celdas tipo rocas
-        3 => create_ground_noise(),       // Planeta 3: Terreno accidentado
-        4 => create_gas_giant_noise(),    // Planeta 4: Gigante Gaseoso
-        5 => create_icy_noise(),          // Planeta 5: Hielo o desierto
-        6 => create_generic_noise(),      // Planeta 6: Genérico para un relleno
-        _ => create_generic_noise(),      // Por defecto: algo genérico
+        0 => create_lava_noise(),
+        1 => create_gas_giant_noise(),
+        2 => create_generic_noise(),
+        3 => create_ground_noise(),
+        4 => create_cloud_noise(),
+        5 => create_icy_noise(),
+        6 => create_generic_noise(),
+        _ => { create_generic_noise()}
     }
 }
 
@@ -163,15 +163,13 @@ fn create_viewport_matrix(width: f32, height: f32) -> Mat4 {
     )
 }
 
-fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex]) {
-    // Vertex Shader Stage
+fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex], current_shader: u32) {
     let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
     for vertex in vertex_array {
         let transformed = vertex_shader(vertex, uniforms);
         transformed_vertices.push(transformed);
     }
 
-    // Primitive Assembly Stage
     let mut triangles = Vec::new();
     for i in (0..transformed_vertices.len()).step_by(3) {
         if i + 2 < transformed_vertices.len() {
@@ -183,24 +181,26 @@ fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Ve
         }
     }
 
-    // Rasterization Stage
     let mut fragments = Vec::new();
     for tri in &triangles {
         fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
     }
 
-    // Fragment Processing Stage
     for fragment in fragments {
         let x = fragment.position.x as usize;
         let y = fragment.position.y as usize;
+
         if x < framebuffer.width && y < framebuffer.height {
-            // Apply fragment shader
-            let shaded_color = fragment_shader(&fragment, &uniforms);
+            let shaded_color = fragment_shader(&fragment, &uniforms, current_shader);
             let color = shaded_color.to_hex();
             framebuffer.set_current_color(color);
             framebuffer.point(x, y, fragment.depth);
         }
     }
+}
+
+fn switch_shader(current_shader: &mut u32, total_shaders: u32) {
+    *current_shader = (*current_shader + 1) % total_shaders;
 }
 
 
@@ -229,7 +229,7 @@ fn main() {
 	let translation = Vec3::new(0.0, 0.0, 0.0);
 	let rotation = Vec3::new(0.0, 0.0, 0.0);
 	let scale = 1.0f32;
-
+    let mut current_shader = 0; // Shader inicial
 	// camera parameters
 	let mut camera = Camera::new(
         Vec3::new(0.0, 0.0, 5.0),
@@ -270,6 +270,11 @@ fn main() {
             break;
         }
 
+        // Cambiar el shader al presionar "S"
+        if window.is_key_pressed(Key::C, minifb::KeyRepeat::No) {
+            current_shader = (current_shader + 1) % 8; // Cambia entre 0, 1, 2, 3, 4
+        }
+
         time += 1;
 
         handle_input(&window, &mut camera);
@@ -284,7 +289,7 @@ fn main() {
         // Renderiza cada planeta con su ruido asignado
         for (planet_index, (vertex_array, noise)) in planets.iter().enumerate() {
             uniforms.noise = Rc::clone(noise); // Clona la referencia, no el valor
-            render(&mut framebuffer, &uniforms, vertex_array);
+            render(&mut framebuffer, &uniforms, vertex_array, current_shader);
         }
 
         window
